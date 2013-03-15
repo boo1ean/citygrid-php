@@ -15,143 +15,68 @@ if (!function_exists('json_decode')) {
 class CityGrid
 {
     /**
-     * CityGrid publish code
+     * API methods map
      */
-    private $_publisherCode;
-
-    /**
-     * Place details endpoint
-     */
-    const URL_API_PLACES_DETAIL = 'http://api.citygridmedia.com/content/places/v2/detail?';
-
-    /**
-     * Default options for place details endpoint URL
-     */
-    private $_defaultOptionsDetails = array(
-        'id_type'       => null,
-        'phone'         => null,
-        'customer_only' => null,
-        'all_results'   => null,
-        'review_count'  => null,
-        'placement'     => null,
-        'format'        => 'json',
-        'callback'      => null,
-        'i'             => null
+    protected $methods = array(
+        'searchWhere'  => 'http://api.citygridmedia.com/content/places/v2/search/where?',
+        'details'      => 'http://api.citygridmedia.com/content/places/v2/detail?',
+        'searchLatLng' => 'http://api.citygridmedia.com/content/places/v2/search/latlon?',
+        'reviews'      => 'http://api.citygridmedia.com/content/reviews/v2/search/where?'
     );
 
     /**
-     * Lat-Lon search endpoint URL
+     * Opt decorators for oem endpoint
      */
-    const URL_API_SEARCH_LATLON = 'http://api.citygridmedia.com/content/places/v2/search/latlon?';
-
-    /**
-     * Default options for lat-lon search endpoint
-     */
-    private $_defaultOptionsSearchLatLon = array(
-        'what'       => null,
-        'type'       => null,
-        'lat'        => null,
-        'lon'        => null,
-        'radius'     => null,
-        'page'       => 1,
-        'rpp'        => 20,
-        'sort'       => 'dist',
-        'format'     => 'xml',
-        'placement'  => null,
-        'has_offers' => null,
-        'histograms' => null,
-        'i'          => null
+    protected $optDecorators = array(
+        'details' => array('client_ip' => '127.0.0.1')
     );
 
     /**
-     * Where search endpoint URL
+     * Default options
      */
-    const URL_API_SEARCH_WHERE = 'http://api.citygridmedia.com/content/places/v2/search/where?';
-
-    /**
-     * Default options for where search endpoint
-     */
-    private $_defaultOptionsSearchWhere = array(
-        'what'       => null,
-        'type'       => null,
-        'where'      => null,
-        'page'       => 1,
-        'rpp'        => 20,
-        'sort'       => 'dist',
-        'format'     => 'xml',
-        'placement'  => null,
-        'has_offers' => null,
-        'histograms' => null,
-        'i'          => null
+    private $_defaultOptions = array(
+        'publisher' => null,
+        'format'    => 'json'
     );
 
     /**
      * Save publisher code
      */
     public function __construct($publisherCode) {
-        $this->_publisherCode = $publisherCode;
+        $this->_defaultOptions['publisher'] = $publisherCode;
     }
 
     /**
-     * Get place details from CityGrid
+     * Check API methods map
      *
-     * @param integer $id place id
-     * @options array $options additional request options
-     * @throws InvalidArgumentException if options are invalid
-     * @return array CityGrid response
+     * @param string $method api method name
+     * @param array $params api method options
+     * @retrun array response
      */
-    public function details($options) {
-        $this->_validateOptions($options);
-        $options = array_merge(
-            $this->_defaultOptionsDetails,
-            $options,
-            array(
-                'client_ip' => '127.0.0.1',
-                'publisher' => $this->_publisherCode
-            )
-        );
+    public function __call($method, $params) {
+        if (array_key_exists($method, $this->methods) && isset($params[0])) {
+            return $this->_callMethod($method, $params[0]);
+        }
 
-        return $this->_process($options, self::URL_API_PLACES_DETAIL);
+        throw new InvalidArgumentException("Call to undefined method $method.");
     }
 
     /**
-     * Lat-Lon CityGrid search
+     * Call specific api method
      *
-     * @param array $options search request options
-     * @throws InvalidArgumentException if options are invalid
-     * @return array response data
+     * @param string $method method name
+     * @param array $options api call options
+     * @return array response from citygrid
      */
-    public function searchLatLon($options) {
+    protected function _callMethod($method, $options) {
         $this->_validateOptions($options);
-        $options = array_merge(
-            $this->_defaultOptionsSearchLatLon,
-            $options,
-            array(
-                'publisher' => $this->_publisherCode
-            )
-        );
+        $options = $this->_getOptions($options);
 
-        return $this->_process($options, self::URL_API_SEARCH_LATLON);
-    }
+        if (isset($this->optDecorators[$method])) {
+            $options = array_merge($this->optDecorators[$method], $options);
+        }
 
-    /**
-     * Where CityGrid search
-     *
-     * @param array $options search request params
-     * @throws InvalidArgumentException if options are invalid
-     * @return array response data
-     */
-    public function searchWhere($options) {
-        $this->_validateOptions($options);
-        $options = array_merge(
-            $this->_defaultOptionsSearchWhere,
-            $options,
-            array(
-                'publisher' => $this->_publisherCode
-            )
-        );
-
-        return $this->_process($options, self::URL_API_SEARCH_WHERE);
+        return $this->_process($options, $this->methods[$method]);
     }
 
     /**
@@ -164,7 +89,6 @@ class CityGrid
         $query = $this->_queryString($options);
         $url   = $baseURL . $query;
         $data  = $this->_httpGet($url);
-
         return $this->_decodeData($data);
     }
 
@@ -177,6 +101,16 @@ class CityGrid
         if (!is_array($options)) {
             throw new InvalidArgumentException('CityGrid options should be array.');
         }
+    }
+
+    /**
+     * Options decorator adds publisher id and stuff
+     *
+     * @param array $options list of options
+     * @return array decorated options
+     */
+    private function _getOptions($options) {
+        return array_merge($this->_defaultOptions, $options);
     }
 
     /**
