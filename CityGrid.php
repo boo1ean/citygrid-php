@@ -18,17 +18,21 @@ class CityGrid
      * API methods map
      */
     protected $methods = array(
-        'searchWhere'  => 'http://api.citygridmedia.com/content/places/v2/search/where?',
-        'details'      => 'http://api.citygridmedia.com/content/places/v2/detail?',
-        'searchLatLng' => 'http://api.citygridmedia.com/content/places/v2/search/latlon?',
-        'reviews'      => 'http://api.citygridmedia.com/content/reviews/v2/search/where?'
+        'search'        => 'http://api.citygridmedia.com/content/places/v2/search/where?',
+        'searchLatLon'  => 'http://api.citygridmedia.com/content/places/v2/search/latlon?',
+        'detail'        => 'http://api.citygridmedia.com/content/places/v2/detail?',
+        'reviews'       => 'http://api.citygridmedia.com/content/reviews/v2/search/where?',
+        'reviewsLatLon' => 'http://api.citygridmedia.com/content/reviews/v2/search/latlon?',
+        'offers'        => 'http://api.citygridmedia.com/content/offers/v2/search/where?',
+        'offersLatLon'  => 'http://api.citygridmedia.com/content/offers/v2/search/latlon?',
+        'offersDetail'  => 'http://api.citygridmedia.com/content/offers/v2/detail?'
     );
 
     /**
-     * Opt decorators for oem endpoint
+     * Opt decorators for detail endpoint
      */
     protected $optDecorators = array(
-        'details' => array('client_ip' => '127.0.0.1')
+        'detail' => array('client_ip' => '127.0.0.1')
     );
 
     /**
@@ -83,13 +87,19 @@ class CityGrid
      * Process options and execute request
      *
      * @param array $options request options
-     * @return array data from CityGrid
+     * @return mixed data from CityGrid (if foramt is set to json returns array)
+     * otherwise raw response
      */
     private function _process($options, $baseURL) {
         $query = $this->_queryString($options);
         $url   = $baseURL . $query;
         $data  = $this->_httpGet($url);
-        return $this->_decodeData($data);
+
+        if ('json' === $options['format']) {
+            $data = $this->_decodeData($data);
+        }
+
+        return $data;
     }
 
     /**
@@ -135,8 +145,8 @@ class CityGrid
         curl_setopt($ch, CURLOPT_URL, $url); 
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 
-        $response = curl_exec($ch);  
-        curl_close($ch);    
+        $response = curl_exec($ch);
+        curl_close($ch);
 
         return $response;
     }
